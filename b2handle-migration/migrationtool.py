@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import mysql.connector
 import argparse
@@ -17,7 +19,7 @@ DO_REMOTE_CALLS = True
 
 class MigrationTool(object):
     
-    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, handle_key_file = None, handle_secret_key = None):
+    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, handle_key_file=None, handle_secret_key=None):
         super(MigrationTool, self).__init__()
         self.db_host = db_host
         self.db_user = db_user
@@ -94,8 +96,6 @@ class MigrationTool(object):
         
     @staticmethod
     def __remove_stmt(handle, index):
-        if type(handle) == tuple:
-            raise Exception("!!!")
         return "%s:%s" % (index, handle)
     
     @staticmethod
@@ -117,7 +117,7 @@ class MigrationTool(object):
             for handle_name in self.all_handles:
                 progress += 1
                 if progress % progress_stepping == 0:
-                    print("{0:.0%}".format(float(progress)/len(self.all_handles)))
+                    print("{0:.0%}".format(float(progress) / len(self.all_handles)))
                     if progress == progress_stepping:
                         # print time estimate
                         t_now = datetime.now()
@@ -241,12 +241,12 @@ class MigrationTool(object):
                 if st_modify:
                     batch_file.write("MODIFY %s\n" % handle_name)
                     for l in st_modify:
-                        batch_file.write(l+"\n")
+                        batch_file.write(l + "\n")
                     batch_file.write("\n")
                 if st_add:
                     batch_file.write("ADD %s\n" % handle_name)
                     for l in st_add:
-                        batch_file.write(l+"\n")
+                        batch_file.write(l + "\n")
                     batch_file.write("\n")
                 batch_file.write("\n")
         finally:
@@ -284,7 +284,7 @@ if __name__ == "__main__":
         print("fixedcontent = FALSE")
         
     migration_tool = MigrationTool(args.databasehost, args.databaseuser, args.databasepassword, args.databasename,
-                                   args.handleuser, args.outputfile, args.prefix.split(","), args.fixedcontent, handle_key_file = args.handlekeyfile, handle_secret_key = args.handlesecretkey)
+                                   args.handleuser, args.outputfile, args.prefix.split(","), args.fixedcontent, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey)
     t_start = datetime.now()
     print("Migration started: %s" % t_start)
     migration_tool.execute()
