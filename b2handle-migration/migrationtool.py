@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime
 from b2handle.handleclient import EUDATHandleClient
 from xml.etree import ElementTree
+from b2handle.handleexceptions import HandleSyntaxError
 
 INDEX_PROFILE_VERSION = 1000
 INDEX_FIXED_CONTENT = 1010
@@ -19,7 +20,7 @@ DO_REMOTE_CALLS = True
 
 class MigrationTool(object):
     
-    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, handle_key_file=None, handle_secret_key=None):
+    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, handle_key_file=None, handle_secret_key=None, handle_server_url=None):
         super(MigrationTool, self).__init__()
         self.db_host = db_host
         self.db_user = db_user
@@ -35,7 +36,9 @@ class MigrationTool(object):
         else:
             self.fixed_content = "FALSE"
         self.all_handles = []
+        self.handle_server_url = handle_server_url
         self.b2handleclient = EUDATHandleClient.instantiate_for_read_access()
+        self.b2handleclient = EUDATHandleClient.instantiate_for_read_access(handle_server_url)
         
     def execute(self):
         try:
@@ -83,7 +86,11 @@ class MigrationTool(object):
         
         Note that the return dict format is different from the format returned by the retrieve_handle_record method!
         """
-        return self.b2handleclient.retrieve_handle_record(handle_name)
+        try:
+            return self.b2handleclient.retrieve_handle_record(handle_name)
+        except HandleSyntaxError:
+            print("Warning: Bad Handle syntax for Handle '%s'!" % handle_name)
+            return None
             
 
     def write_authentication_info(self, batch_file):
@@ -267,6 +274,7 @@ if __name__ == "__main__":
     parser.add_argument("prefix", help="Prefix(es) to query, comma separated")
     parser.add_argument("--fixedcontent", action="store_true", help="Content is fixed for all covered prefixes")
     parser.add_argument("--no-fixedcontent", action="store_true", help="Content is not fixed for all covered prefixes")
+    parser.add_argument("--handleserverurl", help="Local Handle server URL")
     
     args = parser.parse_args()
 
@@ -284,7 +292,7 @@ if __name__ == "__main__":
         print("fixedcontent = FALSE")
         
     migration_tool = MigrationTool(args.databasehost, args.databaseuser, args.databasepassword, args.databasename,
-                                   args.handleuser, args.outputfile, args.prefix.split(","), args.fixedcontent, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey)
+                                   args.handleuser, args.outputfile, args.prefix.split(","), args.fixedcontent, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey, handle_server_url=args.handleserverurl)
     t_start = datetime.now()
     print("Migration started: %s" % t_start)
     migration_tool.execute()
