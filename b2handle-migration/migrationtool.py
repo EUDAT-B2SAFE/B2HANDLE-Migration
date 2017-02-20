@@ -162,10 +162,10 @@ class MigrationTool(object):
                 
                 if helper_value.get("ROR"):
                     ror = helper_value["ROR"]
-                    st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["ROR"]))
+                    index_ror = helper_index["ROR"]
                 if helper_value.get("EUDAT/ROR"):
                     ror = helper_value["EUDAT/ROR"]
-                    st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["EUDAT/ROR"]))
+                    index_ror = helper_index["EUDAT/ROR"]
                 
                 if DO_REMOTE_CALLS and (helper_value.get("PPID") or helper_value.get("EUDAT/PPID")):
                     # The current record is for a replica
@@ -207,16 +207,16 @@ class MigrationTool(object):
                     if not ror:
                         ror = fio
                     # Now write ror & fio fields
-                    st_add.append(MigrationTool.__add_stmt(INDEX_ROR, "EUDAT/ROR", ror))
+                    st_modify.append(MigrationTool.__modify_stmt(index_ror, "EUDAT/ROR", ror))
                     st_add.append(MigrationTool.__add_stmt(INDEX_FIO, "EUDAT/FIO", fio))
                     # Also cover the new PARENT field, which simply takes the PPID value, replacing it
                     if "PPID" in helper_value:
+                        index_ppid = helper_index["PPID"]
                         ppid = helper_value["PPID"]
-                        st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["PPID"]))
                     else:
+                        index_ppid = helper_index["EUDAT/PPID"]
                         ppid = helper_value["EUDAT/PPID"]
-                        st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["EUDAT/PPID"]))
-                    st_add.append(MigrationTool.__add_stmt(INDEX_PARENT, "EUDAT/PARENT", ppid))
+                    st_modify.append(MigrationTool.__modify_stmt(index_ppid, "EUDAT/PARENT", ppid))
                 else:
                     # The current record is for an original
                     # 1. An FIO field will not be included (does not make sense)
@@ -226,7 +226,6 @@ class MigrationTool(object):
                 
                 # Transform 10320/loc entry to a comma-separated list for the new EUDAT/REPLICA field
                 if helper_value.get("10320/LOC"):
-                    st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["10320/LOC"]))
                     # parse XML structure
                     tree = ElementTree.fromstring(helper_value.get("10320/LOC"))
                     replica_locs = {}
@@ -237,7 +236,10 @@ class MigrationTool(object):
                         raise Exception("Broken 10320/LOC record on %s: href on id 0 does not match Handle's URL value!" % handle_name)
                     del replica_locs[0]
                     if replica_locs:
-                        st_add.append(MigrationTool.__add_stmt(INDEX_REPLICA, "EUDAT/REPLICA", ",".join(replica_locs.itervalues())))
+                        st_modify.append(MigrationTool.__modify_stmt(helper_index["10320/LOC"], "EUDAT/REPLICA", ",".join(replica_locs.itervalues())))
+                    else:
+                        st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["10320/LOC"]))
+                        
             
                 # Record profile version '1'
                 st_add.append("%s EUDAT/PROFILE_VERSION 86400 1110 UTF8 1" % INDEX_PROFILE_VERSION)
