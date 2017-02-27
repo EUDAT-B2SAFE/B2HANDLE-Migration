@@ -69,6 +69,8 @@ class MigrationTool(object):
         try:
             File = open(self.input_batch_filename,"r")
             for line in File:
+                line = line.replace("\n","")
+                line = line.replace("\r","")
                 self.all_handles.append(line)
             self.total_number_of_handles = len(self.all_handles)
         finally:
