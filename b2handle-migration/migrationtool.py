@@ -20,7 +20,7 @@ DO_REMOTE_CALLS = True
 
 class MigrationTool(object):
     
-    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, handle_key_file=None, handle_secret_key=None, handle_server_url=None):
+    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, input_batch_file=None, handle_key_file=None, handle_secret_key=None, handle_server_url=None):
         super(MigrationTool, self).__init__()
         self.db_host = db_host
         self.db_user = db_user
@@ -29,6 +29,7 @@ class MigrationTool(object):
         self.admin_handle = admin_handle
         self.key_file = handle_key_file
         self.secret_key = handle_secret_key
+        self.input_batch_filename = input_batch_file
         self.output_batch_filename = output_batch_filename
         self.queried_prefixes = queried_prefixes
         if fixed_content:
@@ -43,7 +44,10 @@ class MigrationTool(object):
     def execute(self):
         try:
             self.connection = mysql.connector.connect(user=self.db_user, database=self.database_name, host=self.db_host, password=self.db_password)
-            self.collect_all_handles()
+            if self.input_batch_filename is None:
+                self.collect_all_handles()
+            else:
+                self.read_all_handles()
             print("Total number of Handles collected: %s" % len(self.all_handles))
             self.migrate_handles()
         finally:
@@ -60,7 +64,16 @@ class MigrationTool(object):
             for handle_name in cursor_all_handles:
                 self.all_handles.append(handle_name[0])
         self.total_number_of_handles = len(self.all_handles)
-            
+
+    def read_all_handles(self):
+        try:
+            File = open(self.input_batch_filename,"r")
+            for line in File:
+                self.all_handles.append(line)
+            self.total_number_of_handles = len(self.all_handles)
+        finally:
+            File.close()
+ 
     def retrieve_handle_record(self, handle_name):
         """
         Retrieve and return a handle record via SQL, already cleaned up (not containing HS specific fields).
@@ -272,6 +285,7 @@ if __name__ == "__main__":
     parser.add_argument("databaseuser", help="SQL database server user name")
     parser.add_argument("databasepassword", help="SQL database server user password")
     parser.add_argument("databasename", help="SQL database name on server")
+    parser.add_argument("--inputfile", help="input batch file name")
     parser.add_argument("outputfile", help="Output batch file name")
     parser.add_argument("prefix", help="Prefix(es) to query, comma separated")
     parser.add_argument("--fixedcontent", action="store_true", help="Content is fixed for all covered prefixes")
@@ -294,7 +308,7 @@ if __name__ == "__main__":
         print("fixedcontent = FALSE")
         
     migration_tool = MigrationTool(args.databasehost, args.databaseuser, args.databasepassword, args.databasename,
-                                   args.handleuser, args.outputfile, args.prefix.split(","), args.fixedcontent, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey, handle_server_url=args.handleserverurl)
+                                   args.handleuser,  args.outputfile, args.prefix.split(","), args.fixedcontent, input_batch_file=args.inputfile, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey, handle_server_url=args.handleserverurl)
     t_start = datetime.now()
     print("Migration started: %s" % t_start)
     migration_tool.execute()
