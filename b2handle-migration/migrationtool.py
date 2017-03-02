@@ -7,6 +7,7 @@ from datetime import datetime
 from b2handle.handleclient import EUDATHandleClient
 from xml.etree import ElementTree
 from b2handle.handleexceptions import HandleSyntaxError
+from requests import ConnectionError
 
 INDEX_PROFILE_VERSION = 1000
 INDEX_FIXED_CONTENT = 1010
@@ -146,133 +147,136 @@ class MigrationTool(object):
                         t_delta = t_now - t_start
                         print("Migration estimated to take %s - expected to finish at %s" % (t_delta * 100, t_delta * 100 + t_start))
                 handle_record = self.retrieve_handle_record(handle_name)
-                # 1. Check whether record is actually a B2SAFE Handle and has not been migrated yet
-                # (also build helper dicts here)
-                helper_value = {}
-                helper_index = {}
-                for h_idx, (h_type, h_value, h_timestamp) in handle_record.iteritems():
-                    helper_value[h_type.upper()] = h_value
-                    helper_index[h_type.upper()] = h_idx
-                # We assume that every valid old EUDAT record has a CHECKSUM entry
-                # This also causes ignoring typical administrative Handles
-                if helper_value.get("EUDAT/PROFILE_VERSION") == "1" or not "CHECKSUM" in helper_value:
-                    continue
-                # Lists with action statements
-                st_modify = []
-                st_remove = []
-                st_add = []
-                # -- Analyze old record, append modification actions --
-                # CHECKSUM is just transferred to EUDAT/CHECKSUM
-                st_modify.append(MigrationTool.__modify_stmt(helper_index["CHECKSUM"], "EUDAT/CHECKSUM", helper_value["CHECKSUM"]))
-                # New field EUDAT/CHECKSUM_TIMESTAMP is populated with last modified date of old CHECKSUM field, ISO converted
-                timestamp = int(handle_record[helper_index["CHECKSUM"]][2])
-                checksum_datetime = datetime.fromtimestamp(timestamp)
-                st_add.append(MigrationTool.__add_stmt(INDEX_CHECKSUM_TIMESTAMP, "EUDAT/CHECKSUM_TIMESTAMP", checksum_datetime.isoformat()))
-                # FIXED_CONTENT is set according to fixed_content setting
-                st_add.append(MigrationTool.__add_stmt(INDEX_FIXED_CONTENT, "EUDAT/FIXED_CONTENT", self.fixed_content))
-                
-                # Now determine FIO and ROR
-                ror = ""
-                fio = ""
-                
-                if helper_value.get("ROR"):
-                    ror = helper_value["ROR"]
-                    index_ror = helper_index["ROR"]
-                if helper_value.get("EUDAT/ROR"):
-                    ror = helper_value["EUDAT/ROR"]
-                    index_ror = helper_index["EUDAT/ROR"]
-                
-                if DO_REMOTE_CALLS and (helper_value.get("PPID") or helper_value.get("EUDAT/PPID")):
-                    # The current record is for a replica
-                    # Now walk the chain of PPID pointers back to the original
-                    if "PPID" in helper_value:
-                        predecessor = helper_value["PPID"]
-                    else:
-                        predecessor = helper_value["EUDAT/PPID"]
-                    original_record = {}
-                    counter = 0
-                    successor = handle_name
-                    while True:
-                        counter += 1
-                        if counter > 100:
-                            raise Exception("Error walking the replica chain: Infinite loop! Last predecessor: %s" % predecessor)
-                        original_record = self.retrieve_handle_record_remotely(predecessor)
-                        if not original_record:
-                            print("Warning: Handle %s contains a PPID entry pointing to a non-existing Handle!" % successor)
-                            break
-                        successor = predecessor
-                        if "PPID" in original_record:
-                            predecessor = original_record["PPID"]
+                try:
+                    # 1. Check whether record is actually a B2SAFE Handle and has not been migrated yet
+                    # (also build helper dicts here)
+                    helper_value = {}
+                    helper_index = {}
+                    for h_idx, (h_type, h_value, h_timestamp) in handle_record.iteritems():
+                        helper_value[h_type.upper()] = h_value
+                        helper_index[h_type.upper()] = h_idx
+                    # We assume that every valid old EUDAT record has a CHECKSUM entry
+                    # This also causes ignoring typical administrative Handles
+                    if helper_value.get("EUDAT/PROFILE_VERSION") == "1" or not "CHECKSUM" in helper_value:
+                        continue
+                    # Lists with action statements
+                    st_modify = []
+                    st_remove = []
+                    st_add = []
+                    # -- Analyze old record, append modification actions --
+                    # CHECKSUM is just transferred to EUDAT/CHECKSUM
+                    st_modify.append(MigrationTool.__modify_stmt(helper_index["CHECKSUM"], "EUDAT/CHECKSUM", helper_value["CHECKSUM"]))
+                    # New field EUDAT/CHECKSUM_TIMESTAMP is populated with last modified date of old CHECKSUM field, ISO converted
+                    timestamp = int(handle_record[helper_index["CHECKSUM"]][2])
+                    checksum_datetime = datetime.fromtimestamp(timestamp)
+                    st_add.append(MigrationTool.__add_stmt(INDEX_CHECKSUM_TIMESTAMP, "EUDAT/CHECKSUM_TIMESTAMP", checksum_datetime.isoformat()))
+                    # FIXED_CONTENT is set according to fixed_content setting
+                    st_add.append(MigrationTool.__add_stmt(INDEX_FIXED_CONTENT, "EUDAT/FIXED_CONTENT", self.fixed_content))
+                    
+                    # Now determine FIO and ROR
+                    ror = ""
+                    fio = ""
+                    
+                    if helper_value.get("ROR"):
+                        ror = helper_value["ROR"]
+                        index_ror = helper_index["ROR"]
+                    if helper_value.get("EUDAT/ROR"):
+                        ror = helper_value["EUDAT/ROR"]
+                        index_ror = helper_index["EUDAT/ROR"]
+                    
+                    if DO_REMOTE_CALLS and (helper_value.get("PPID") or helper_value.get("EUDAT/PPID")):
+                        # The current record is for a replica
+                        # Now walk the chain of PPID pointers back to the original
+                        if "PPID" in helper_value:
+                            predecessor = helper_value["PPID"]
                         else:
-                            predecessor = original_record.get("EUDAT/PPID")
-                        if predecessor:
-                            predecessor = predecessor.strip()
-                        if not predecessor:                         
-                            break
-                        # clean up - cut http://hdl.handle.net
-                        if predecessor.startswith("http://hdl.handle.net/"):
-                            predecessor = predecessor[22:]
-                        elif handle_name.startswith("https://hdl.handle.net/"):
-                            predecessor = predecessor[23:]
-                        if not predecessor:
-                            print("Warning: Broken PPID value in Handle %s" % successor)                         
-                            break
-                        
-                    fio = predecessor
-                    if not ror:
-                        ror = fio
-                    # Now write ror & fio fields
-                    st_modify.append(MigrationTool.__modify_stmt(index_ror, "EUDAT/ROR", ror))
-                    st_add.append(MigrationTool.__add_stmt(INDEX_FIO, "EUDAT/FIO", fio))
-                    # Also cover the new PARENT field, which simply takes the PPID value, replacing it
-                    if "PPID" in helper_value:
-                        index_ppid = helper_index["PPID"]
-                        ppid = helper_value["PPID"]
+                            predecessor = helper_value["EUDAT/PPID"]
+                        original_record = {}
+                        counter = 0
+                        successor = handle_name
+                        while True:
+                            counter += 1
+                            if counter > 100:
+                                raise Exception("Error walking the replica chain: Infinite loop! Last predecessor: %s" % predecessor)
+                            original_record = self.retrieve_handle_record_remotely(predecessor)
+                            if not original_record:
+                                print("Warning: Handle %s contains a PPID entry pointing to a non-existing Handle!" % successor)
+                                break
+                            successor = predecessor
+                            if "PPID" in original_record:
+                                predecessor = original_record["PPID"]
+                            else:
+                                predecessor = original_record.get("EUDAT/PPID")
+                            if predecessor:
+                                predecessor = predecessor.strip()
+                            if not predecessor:                         
+                                break
+                            # clean up - cut http://hdl.handle.net
+                            if predecessor.startswith("http://hdl.handle.net/"):
+                                predecessor = predecessor[22:]
+                            elif handle_name.startswith("https://hdl.handle.net/"):
+                                predecessor = predecessor[23:]
+                            if not predecessor:
+                                print("Warning: Broken PPID value in Handle %s" % successor)                         
+                                break
+                            
+                        fio = predecessor
+                        if not ror:
+                            ror = fio
+                        # Now write ror & fio fields
+                        st_modify.append(MigrationTool.__modify_stmt(index_ror, "EUDAT/ROR", ror))
+                        st_add.append(MigrationTool.__add_stmt(INDEX_FIO, "EUDAT/FIO", fio))
+                        # Also cover the new PARENT field, which simply takes the PPID value, replacing it
+                        if "PPID" in helper_value:
+                            index_ppid = helper_index["PPID"]
+                            ppid = helper_value["PPID"]
+                        else:
+                            index_ppid = helper_index["EUDAT/PPID"]
+                            ppid = helper_value["EUDAT/PPID"]
+                        st_modify.append(MigrationTool.__modify_stmt(index_ppid, "EUDAT/PARENT", ppid))
                     else:
-                        index_ppid = helper_index["EUDAT/PPID"]
-                        ppid = helper_value["EUDAT/PPID"]
-                    st_modify.append(MigrationTool.__modify_stmt(index_ppid, "EUDAT/PARENT", ppid))
-                else:
-                    # The current record is for an original
-                    # 1. An FIO field will not be included (does not make sense)
-                    # 2. If an ROR is in the old record, use as is. If it is empty, leave empty.
-                    if ror:
-                        st_add.append(MigrationTool.__add_stmt(INDEX_ROR, "EUDAT/ROR", ror))
+                        # The current record is for an original
+                        # 1. An FIO field will not be included (does not make sense)
+                        # 2. If an ROR is in the old record, use as is. If it is empty, leave empty.
+                        if ror:
+                            st_add.append(MigrationTool.__add_stmt(INDEX_ROR, "EUDAT/ROR", ror))
+                    
+                    # Transform 10320/loc entry to a comma-separated list for the new EUDAT/REPLICA field
+                    if helper_value.get("10320/LOC"):
+                        # parse XML structure
+                        tree = ElementTree.fromstring(helper_value.get("10320/LOC"))
+                        replica_locs = {}
+                        for loc in tree.findall("location"):
+                            replica_locs[int(loc.get("id"))] = loc.get("href")
+                        # entry 0 should be the same as the Handle's base URL
+                        if replica_locs.get(0) != helper_value["URL"]:
+                            print("Warning: Broken 10320/LOC record on %s: href on id 0 does not match Handle's URL value!" % handle_name)
+                        del replica_locs[0]
+                        if replica_locs:
+                            st_modify.append(MigrationTool.__modify_stmt(helper_index["10320/LOC"], "EUDAT/REPLICA", ",".join(replica_locs.itervalues())))
+                        else:
+                            st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["10320/LOC"]))
+                            
                 
-                # Transform 10320/loc entry to a comma-separated list for the new EUDAT/REPLICA field
-                if helper_value.get("10320/LOC"):
-                    # parse XML structure
-                    tree = ElementTree.fromstring(helper_value.get("10320/LOC"))
-                    replica_locs = {}
-                    for loc in tree.findall("location"):
-                        replica_locs[int(loc.get("id"))] = loc.get("href")
-                    # entry 0 should be the same as the Handle's base URL
-                    if replica_locs.get(0) != helper_value["URL"]:
-                        print("Warning: Broken 10320/LOC record on %s: href on id 0 does not match Handle's URL value!" % handle_name)
-                    del replica_locs[0]
-                    if replica_locs:
-                        st_modify.append(MigrationTool.__modify_stmt(helper_index["10320/LOC"], "EUDAT/REPLICA", ",".join(replica_locs.itervalues())))
-                    else:
-                        st_remove.append(MigrationTool.__remove_stmt(handle_name, helper_index["10320/LOC"]))
-                        
-            
-                # Record profile version '1'
-                st_add.append("%s EUDAT/PROFILE_VERSION 86400 1110 UTF8 1" % INDEX_PROFILE_VERSION)
-                # Execute queued statements
-                if st_remove:
-                    for l in st_remove:
-                        batch_file.write("REMOVE %s\n" % l)
-                if st_modify:
-                    batch_file.write("MODIFY %s\n" % handle_name)
-                    for l in st_modify:
-                        batch_file.write(l + "\n")
+                    # Record profile version '1'
+                    st_add.append("%s EUDAT/PROFILE_VERSION 86400 1110 UTF8 1" % INDEX_PROFILE_VERSION)
+                    # Execute queued statements
+                    if st_remove:
+                        for l in st_remove:
+                            batch_file.write("REMOVE %s\n" % l)
+                    if st_modify:
+                        batch_file.write("MODIFY %s\n" % handle_name)
+                        for l in st_modify:
+                            batch_file.write(l + "\n")
+                        batch_file.write("\n")
+                    if st_add:
+                        batch_file.write("ADD %s\n" % handle_name)
+                        for l in st_add:
+                            batch_file.write(l + "\n")
+                        batch_file.write("\n")
                     batch_file.write("\n")
-                if st_add:
-                    batch_file.write("ADD %s\n" % handle_name)
-                    for l in st_add:
-                        batch_file.write(l + "\n")
-                    batch_file.write("\n")
-                batch_file.write("\n")
+                except ConnectionError:
+                    print("Warning: ConnectionError when migrating Handle %s - skipping!" % handle_name)
         finally:
             batch_file.close()
                 
