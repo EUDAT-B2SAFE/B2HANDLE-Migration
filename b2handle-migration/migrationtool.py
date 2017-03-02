@@ -19,6 +19,9 @@ INDEX_PARENT = 1150
 
 DO_REMOTE_CALLS = True
 
+URL_SUBSTRING_FILTERING = ("b2share.eudat.eu", "trng-b2share.eudat.eu", "eudat-b2share-test.csc.fi")
+
+
 class MigrationTool(object):
     
     def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, input_batch_file=None, handle_key_file=None, handle_secret_key=None, handle_server_url=None):
@@ -158,6 +161,10 @@ class MigrationTool(object):
                     # We assume that every valid old EUDAT record has a CHECKSUM entry
                     # This also causes ignoring typical administrative Handles
                     if helper_value.get("EUDAT/PROFILE_VERSION") == "1" or not "CHECKSUM" in helper_value:
+                        continue
+                    # There are also B2SHARE Handles with a CHECKSUM field - so we check against b2share URLs to filter those out as well
+                    url =  helper_value.get("URL")
+                    if any(s in url for s in URL_SUBSTRING_FILTERING):
                         continue
                     # Lists with action statements
                     st_modify = []
