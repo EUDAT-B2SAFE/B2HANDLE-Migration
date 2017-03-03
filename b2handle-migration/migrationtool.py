@@ -246,7 +246,7 @@ class MigrationTool(object):
                         # 1. An FIO field will not be included (does not make sense)
                         # 2. If an ROR is in the old record, use as is. If it is empty, leave empty.
                         if ror:
-                            st_add.append(MigrationTool.__add_stmt(INDEX_ROR, "EUDAT/ROR", ror))
+                            st_modify.append(MigrationTool.__modify_stmt(index_ror, "EUDAT/ROR", ror))
                     
                     # Transform 10320/loc entry to a comma-separated list for the new EUDAT/REPLICA field
                     if helper_value.get("10320/LOC"):
