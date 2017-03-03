@@ -258,7 +258,8 @@ class MigrationTool(object):
                         # entry 0 should be the same as the Handle's base URL
                         if replica_locs.get(0) != helper_value["URL"]:
                             print("Warning: Broken 10320/LOC record on %s: href on id 0 does not match Handle's URL value!" % handle_name)
-                        del replica_locs[0]
+                        else:
+                            del replica_locs[0]
                         if replica_locs:
                             st_modify.append(MigrationTool.__modify_stmt(helper_index["10320/LOC"], "EUDAT/REPLICA", ",".join(replica_locs.itervalues())))
                         else:
