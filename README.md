@@ -65,10 +65,10 @@ Some performance tests have been done. It differs for master and child handles. 
 
 ## error messages
 The script generates messages:
-* Warning: Broken PPID value in Handle <prefix>/<suffix>
-* Handle <prefix>/<suffix> contains a PPID entry pointing to a non-existing Handle!
-* Warning: Broken 10320/LOC record on <prefix>/<suffix>: href on id 0 does not match Handle's URL value!
-* Warning: Bad Handle syntax for Handle '<handle>'!
+* Warning: Broken PPID value in Handle `<prefix>/<suffix>`
+* Handle `<prefix>/<suffix>` contains a PPID entry pointing to a non-existing Handle!
+* Warning: Broken 10320/LOC record on `<prefix>/<suffix>`: href on id 0 does not match Handle's URL value!
+* Warning: Bad Handle syntax for Handle `'<handle>'`!
 
 
 
