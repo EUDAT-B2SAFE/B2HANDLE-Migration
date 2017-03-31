@@ -175,8 +175,8 @@ class MigrationTool(object):
                     st_modify.append(MigrationTool.__modify_stmt(helper_index["CHECKSUM"], "EUDAT/CHECKSUM", helper_value["CHECKSUM"]))
                     # New field EUDAT/CHECKSUM_TIMESTAMP is populated with last modified date of old CHECKSUM field, ISO converted
                     timestamp = int(handle_record[helper_index["CHECKSUM"]][2])
-                    checksum_datetime = datetime.fromtimestamp(timestamp)
-                    st_add.append(MigrationTool.__add_stmt(INDEX_CHECKSUM_TIMESTAMP, "EUDAT/CHECKSUM_TIMESTAMP", checksum_datetime.isoformat()))
+                    checksum_datetime = datetime.utcfromtimestamp(timestamp).isoformat()+"Z"
+                    st_add.append(MigrationTool.__add_stmt(INDEX_CHECKSUM_TIMESTAMP, "EUDAT/CHECKSUM_TIMESTAMP", checksum_datetime))
                     # FIXED_CONTENT is set according to fixed_content setting
                     st_add.append(MigrationTool.__add_stmt(INDEX_FIXED_CONTENT, "EUDAT/FIXED_CONTENT", self.fixed_content))
                     
