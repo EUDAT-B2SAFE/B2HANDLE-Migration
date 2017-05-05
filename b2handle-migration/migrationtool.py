@@ -24,7 +24,7 @@ URL_SUBSTRING_FILTERING = ("b2share.eudat.eu", "trng-b2share.eudat.eu", "eudat-b
 
 class MigrationTool(object):
     
-    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, input_batch_file=None, handle_key_file=None, handle_secret_key=None, handle_server_url=None):
+    def __init__(self, db_host, db_user, db_password, database_name, admin_handle, output_batch_filename, queried_prefixes, fixed_content, input_batch_file=None, handle_key_file=None, handle_secret_key=None, handle_server_url=None, additional_select=None):
         super(MigrationTool, self).__init__()
         self.db_host = db_host
         self.db_user = db_user
@@ -36,6 +36,7 @@ class MigrationTool(object):
         self.input_batch_filename = input_batch_file
         self.output_batch_filename = output_batch_filename
         self.queried_prefixes = queried_prefixes
+        self.additional_select = additional_select
         if fixed_content:
             self.fixed_content = "TRUE"
         else:
@@ -63,7 +64,10 @@ class MigrationTool(object):
             if not prefix:
                 continue
             prefix_like = '"%s/%%"' % prefix
-            query_all_handles = "SELECT distinct handle FROM handles where handle like %s" % prefix_like
+            if self.additional_select:
+                query_all_handles = "SELECT distinct handle FROM handles where handle like %s and (%s)" % (prefix_like, self.additional_select)
+            else:
+                query_all_handles = "SELECT distinct handle FROM handles where handle like %s" % prefix_like
             cursor_all_handles.execute(query_all_handles)
             for handle_name in cursor_all_handles:
                 self.all_handles.append(handle_name[0])
@@ -305,6 +309,7 @@ if __name__ == "__main__":
     parser.add_argument("--fixedcontent", action="store_true", help="Content is fixed for all covered prefixes")
     parser.add_argument("--no-fixedcontent", action="store_true", help="Content is not fixed for all covered prefixes")
     parser.add_argument("--handleserverurl", help="Local Handle server URL")
+    parser.add_argument("--select", help="Additional select fragment to be inserted into SQL query (careful, no checking!)")
     
     args = parser.parse_args()
 
@@ -322,7 +327,8 @@ if __name__ == "__main__":
         print("fixedcontent = FALSE")
         
     migration_tool = MigrationTool(args.databasehost, args.databaseuser, args.databasepassword, args.databasename,
-                                   args.handleuser,  args.outputfile, args.prefix.split(","), args.fixedcontent, input_batch_file=args.inputfile, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey, handle_server_url=args.handleserverurl)
+                                   args.handleuser,  args.outputfile, args.prefix.split(","), args.fixedcontent, input_batch_file=args.inputfile, handle_key_file=args.handlekeyfile, handle_secret_key=args.handlesecretkey, handle_server_url=args.handleserverurl,
+                                   additional_select=args.select)
     t_start = datetime.now()
     print("Migration started: %s" % t_start)
     migration_tool.execute()
