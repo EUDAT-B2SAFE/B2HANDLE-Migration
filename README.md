@@ -56,11 +56,15 @@ hdl-generic-batch <output_handle_batch> output_handle_batch.log>
 ```
 
 ## Migration performance
-Some performance tests have been done. It differs for master and child handles. With child handles it tries to go up the link if PPID is defined in the handle. A conversion of master handles is very fast.
+
+Some performance tests have been done. It differs for master and child handles. With child handles it tries to go up the link if PPID is defined in the handle. A conversion of master handles is very fast. The process to create the handle batch file was timed as follows:
 * master handles
 500000 handles in about 40 minutes with 4 parrellel migrations running. So about 2 million in 40 minutes.
 * child handles
 500000 handles in about 4 hours with 6 parrellel migrations running. So about 3 million in 4 hours.
+
+The process to really update the handles depends on the machine where the handles are residing. The process to run the handle batch file was timed as follows:
+* 150 actions per seconds. About 3 actions per handle. About 50 handles updated per second. About 180.000 per hour. About 8 million handles where updated in 47 hour.
 
 
 ## error messages
