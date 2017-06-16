@@ -3,6 +3,8 @@ Helper tool to migrate EUDAT PID records for B2SAFE records of the EUDAT project
 
 The script is run on a node with a handle database installed
 
+The script will only migrate handles which have a field with the type `CHECKSUM` in them and do not have `EUDAT/PID_PROFILE` in them. This has been chosen as a way to detect for B2SAFE handles which have not been migrated.
+
 As a prerequistite you need to install the latest B2HANDLE library with all it's dependancies
 
 There are 2 ways to run the script:
