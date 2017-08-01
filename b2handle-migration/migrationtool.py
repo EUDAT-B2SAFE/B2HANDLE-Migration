@@ -227,7 +227,7 @@ class MigrationTool(object):
                                 print("Warning: Broken PPID value in Handle %s" % successor)                         
                                 break
                             
-                        fio = predecessor
+                        fio = successor
                         if not ror:
                             ror = fio
                         # Now write ror & fio fields
