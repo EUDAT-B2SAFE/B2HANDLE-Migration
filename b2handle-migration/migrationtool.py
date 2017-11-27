@@ -47,6 +47,7 @@ class MigrationTool(object):
         self.b2handleclient = EUDATHandleClient.instantiate_for_read_access(handle_server_url)
         
     def execute(self):
+        self.connection = None
         try:
             self.connection = mysql.connector.connect(user=self.db_user, database=self.database_name, host=self.db_host, password=self.db_password)
             if self.input_batch_filename is None:
@@ -56,7 +57,8 @@ class MigrationTool(object):
             print("Total number of Handles collected: %s" % len(self.all_handles))
             self.migrate_handles()
         finally:
-            self.connection.close()
+            if self.connection:
+                self.connection.close()
         
     def collect_all_handles(self):
         cursor_all_handles = self.connection.cursor()
@@ -258,7 +260,10 @@ class MigrationTool(object):
                         tree = ElementTree.fromstring(helper_value.get("10320/LOC"))
                         replica_locs = {}
                         for loc in tree.findall("location"):
-                            replica_locs[int(loc.get("id"))] = loc.get("href")
+                            us = loc.get("href")
+                            if type(us) == unicode:
+                                us = us.encode("UTF-8")
+                            replica_locs[int(loc.get("id"))] = us
                         # entry 0 should be the same as the Handle's base URL
                         if replica_locs.get(0) != helper_value["URL"]:
                             print("Warning: Broken 10320/LOC record on %s: href on id 0 does not match Handle's URL value!" % handle_name)
