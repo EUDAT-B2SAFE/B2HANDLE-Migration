@@ -1,0 +1,4 @@
+# These are real handles on the test prefix, supplied by Mattia
+/foo/bar    21.T12996/0610bd92-5ee4-11eb-af23-fa163eef9493
+/foo/baz    21.T12996/735b3de4-c9a5-11e9-9caf-fa163eef9493
+/foo/boo    21.T12996/3ae8f24a-0c66-11ea-9ce8-fa163eef9493
