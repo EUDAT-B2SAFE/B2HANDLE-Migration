@@ -1,4 +1,38 @@
 # B2HANDLE-Migration
+
+In this repo, there are two migration tools for different use cases:
+
+* B2HANDLE-Migration (2017)
+* SeaDataCloud-Migration (2021)
+
+
+# SeaDataCloud Migration (2021)
+
+This tool was used to migrate a number of PID records from one prefix to another.
+
+It was needed because during the SeaDataCloud, the first ingested files had their PIDs created in the test prefix as the config was switched from the test credentials to the production credentials a little too late.
+
+So we had to:
+
+* Make new PID records in the production prefix
+* Copy the contents from the test prefix to the production prefix
+* Add explanatory notes to the old and new records 
+* Make a redirection from the old to the next records (which will only work with browsers who follow redirects, not for machines).
+
+These things are done by the `pid_migration.py` (done March 2021). There is another script `store_previous_pids.py` to make a backup of the records before the migration.
+
+Also, what has to be done too:
+
+* Make sure the customer changes the PID strings in their database
+* Change the stored PIDs in the B2SAFE metadata
+* Eventually, delete the values from the old PIDs (except for the redirection and the explanatory notes), so we avoid redundancy. Any client relying on these values will notice that they have to wrong/old PIDs. If we left the values in there, they might be used, and the client might not notice they're using an old record, while values in the new record might have changed.
+
+Merret Buurman, DKRZ, 2021-04-08.
+
+
+
+# B2HANDLE-Migration (2017)
+
 Helper tool to migrate EUDAT PID records for B2SAFE records of the EUDAT project
 
 The script is run on a node with a handle database installed
